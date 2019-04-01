@@ -38,9 +38,11 @@ static const char acpi_optimus_dsm_muid[16] = {
     0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0,
 };
 
-// Returns 0 if the call succeeded and non-zero otherwise. If the call
-// succeeded, the result is stored in "result" providing that the result is an
-// integer or a buffer containing 4 values
+/*
+ * Returns 0 if the call succeeded and non-zero otherwise. If the call
+ * succeeded, the result is stored in "result" providing that the result is an
+ * integer or a buffer containing 4 values
+ */
 static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
         int func, char args[4], uint32_t *result) {
     struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -61,7 +63,8 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
     params[2].type = ACPI_TYPE_INTEGER;
     params[2].integer.value = func;
 
-    /* Although the ACPI spec defines Arg3 as a Package, in practise
+    /*
+     * Although the ACPI spec defines Arg3 as a Package, in practise
      * implementations expect a Buffer (CreateWordField and Index functions are
      * applied to it).
      */
@@ -79,7 +82,7 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
 
         acpi_get_name(handle, ACPI_FULL_PATHNAME, &buf);
 
-        pr_warn("%s: failed to evaluate _DSM command", __func__);
+        pr_err("%s: failed to evaluate _DSM command", __func__);
 
         return err;
     }
@@ -97,16 +100,17 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
             *result |= (obj->buffer.pointer[3] << 24);
         }
     } else {
-        pr_warn("_DSM call yields an unsupported result type: %#x\n",
+        pr_err("%s: unsupported result type for _DSM command: %#x\n", __func__,
             obj->type);
     }
 
     kfree(output.pointer);
+
     return 0;
 }
 
 static int bbswitch_optimus_dsm(acpi_handle handle) {
-    char args[] = {1, 0, 0, 3};
+    char args[] = { 1, 0, 0, 3 };
     u32 result = 0;
 
     if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, 0x100, 0x1A, args,
@@ -114,13 +118,12 @@ static int bbswitch_optimus_dsm(acpi_handle handle) {
         return 1;
     }
 
-    pr_debug("%s: result of Optimus _DSM call: %08X\n", __func__, result);
+    pr_info("%s: _DSM command evaluated successfully\n", __func__);
 
     return 0;
 }
 
-static int bbswitch_pci_runtime_suspend(struct device *dev)
-{
+static int bbswitch_pci_runtime_suspend(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
     acpi_handle handle = ACPI_HANDLE(&pdev->dev);
 
@@ -128,11 +131,14 @@ static int bbswitch_pci_runtime_suspend(struct device *dev)
     pci_save_state(pdev);
     pci_set_power_state(pdev, PCI_D3hot);
 
+    pr_info("%s: suspending dedicated GPU\n", __func__);
+
     return 0;
 }
 
-static int bbswitch_pci_runtime_resume(struct device *dev)
-{
+static int bbswitch_pci_runtime_resume(struct device *dev) {
+    pr_info("%s: resuming dedicated GPU\n", __func__);
+
     return 0;
 }
 
@@ -141,8 +147,7 @@ static const struct dev_pm_ops bbswitch_pci_pm_ops = {
     .runtime_resume = bbswitch_pci_runtime_resume,
 };
 
-static int bbswitch_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
-{
+static int bbswitch_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     pm_runtime_set_active(&pdev->dev);
     pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
     pm_runtime_use_autosuspend(&pdev->dev);
@@ -152,8 +157,7 @@ static int bbswitch_pci_probe(struct pci_dev *pdev, const struct pci_device_id *
     return 0;
 }
 
-static void bbswitch_pci_remove(struct pci_dev *pdev)
-{
+static void bbswitch_pci_remove(struct pci_dev *pdev) {
     pm_runtime_get_noresume(&pdev->dev);
     pm_runtime_dont_use_autosuspend(&pdev->dev);
     pm_runtime_forbid(&pdev->dev);
@@ -161,7 +165,7 @@ static void bbswitch_pci_remove(struct pci_dev *pdev)
 
 static const struct pci_device_id pciidlist[] = {
     { PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_ANY_ID),
-      PCI_CLASS_DISPLAY_3D << 8, 0xffff00 },
+            PCI_CLASS_DISPLAY_3D << 8, 0xffff00 },
     { 0, 0, 0 },
 };
 
