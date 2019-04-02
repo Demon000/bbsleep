@@ -38,17 +38,11 @@ static const char acpi_optimus_dsm_muid[16] = {
     0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0,
 };
 
-/*
- * Returns 0 if the call succeeded and non-zero otherwise. If the call
- * succeeded, the result is stored in "result" providing that the result is an
- * integer or a buffer containing 4 values
- */
 static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
-        int func, char args[4], uint32_t *result) {
+        int func, char args[4]) {
     struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
     struct acpi_object_list input;
     union acpi_object params[4];
-    union acpi_object *obj;
     int err;
 
     input.count = 4;
@@ -70,11 +64,7 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
      */
     params[3].type = ACPI_TYPE_BUFFER;
     params[3].buffer.length = 4;
-    if (args) {
-        params[3].buffer.pointer = args;
-    } else {
-        params[3].buffer.pointer = (char[4]){0, 0, 0, 0};
-    }
+    params[3].buffer.pointer = args;
 
     err = acpi_evaluate_object(handle, "_DSM", &input, &output);
     if (err) {
@@ -87,23 +77,6 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
         return err;
     }
 
-    obj = (union acpi_object *)output.pointer;
-
-    if (obj->type == ACPI_TYPE_INTEGER && result) {
-        *result = obj->integer.value;
-    } else if (obj->type == ACPI_TYPE_BUFFER) {
-        if (obj->buffer.length == 4 && result) {
-            *result = 0;
-            *result |= obj->buffer.pointer[0];
-            *result |= (obj->buffer.pointer[1] << 8);
-            *result |= (obj->buffer.pointer[2] << 16);
-            *result |= (obj->buffer.pointer[3] << 24);
-        }
-    } else {
-        pr_err("%s: unsupported result type for _DSM command: %#x\n", __func__,
-            obj->type);
-    }
-
     kfree(output.pointer);
 
     return 0;
@@ -111,10 +84,8 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
 
 static int bbswitch_optimus_dsm(acpi_handle handle) {
     char args[] = { 1, 0, 0, 3 };
-    u32 result = 0;
 
-    if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, 0x100, 0x1A, args,
-        &result)) {
+    if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, 0x100, 0x1A, args)) {
         return 1;
     }
 
