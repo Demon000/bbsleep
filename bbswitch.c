@@ -21,10 +21,7 @@
 #include <linux/pci.h>
 #include <linux/acpi.h>
 #include <linux/module.h>
-#include <asm/uaccess.h>
-#include <linux/suspend.h>
 #include <linux/pm_runtime.h>
-#include <linux/version.h>
 
 #define BBSWITCH_VERSION "0.8"
 
