@@ -157,6 +157,8 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
     }
 
     pci_save_state(pdev);
+    pci_clear_master(pdev);
+    pci_disable_device(pdev);
     pci_set_power_state(pdev, PCI_D3cold);
 
     if (data->type == DSM_TYPE_NVIDIA) {
@@ -178,6 +180,8 @@ static int bbsleep_pci_runtime_resume(struct device *dev) {
 
     pci_set_power_state(pdev, PCI_D0);
     pci_restore_state(pdev);
+    pci_enable_device(pdev);
+    pci_set_master(pdev);
 
     pr_info("%s: resuming dedicated GPU\n", __func__);
 
