@@ -25,50 +25,39 @@
 
 #define BBSLEEP_VERSION "0.1"
 
+#define OPTIMUS_DSM_POWERDOWN_PS3 (3 << 24)
+#define OPTIMUS_DSM_FLAGS_CHANGED (1)
+#define OPTIMUS_DSM_SET_POWERDOWN (OPTIMUS_DSM_POWERDOWN_PS3 | OPTIMUS_DSM_FLAGS_CHANGED)
+
 #define OPTIMUS_DSM_REVID 0x100
 #define OPTIMUS_DSM_FUNC 0x1A
-static const char acpi_optimus_dsm_muid[16] = {
-    0xF8, 0xD8, 0x86, 0xA4, 0xDA, 0x0B, 0x1B, 0x47,
-    0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0,
-};
+static const guid_t optimus_dsm_muid =
+    GUID_INIT(0xA486D8F8, 0x0BDA, 0x471B,
+            0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0);
 
-static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
-        int func, char args[4], uint32_t *result) {
-    struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
-    struct acpi_object_list input;
-    union acpi_object params[4];
+static int bbsleep_dsm(acpi_handle handle, const guid_t *guid, int revid,
+        int func, int arg, uint32_t *result) {
+    int i;
     union acpi_object *obj;
-    int err;
+    char args_buff[4];
+    union acpi_object argv4 = {
+        .buffer.type = ACPI_TYPE_BUFFER,
+        .buffer.length = 4,
+        .buffer.pointer = args_buff
+    };
 
-    input.count = 4;
-    input.pointer = params;
-    params[0].type = ACPI_TYPE_BUFFER;
-    params[0].buffer.length = 16;
-    params[0].buffer.pointer = (char *)muid;
-
-    params[1].type = ACPI_TYPE_INTEGER;
-    params[1].integer.value = revid;
-
-    params[2].type = ACPI_TYPE_INTEGER;
-    params[2].integer.value = func;
-
-    /*
-     * Although the ACPI spec defines Arg3 as a Package, implementations
-     * expect a Buffer (CreateWordField and Index functions are
-     * applied to it).
-     */
-    params[3].type = ACPI_TYPE_BUFFER;
-    params[3].buffer.length = 4;
-    params[3].buffer.pointer = args;
-
-    err = acpi_evaluate_object(handle, "_DSM", &input, &output);
-    if (err) {
-        pr_err("%s: failed to evaluate _DSM command", __func__);
-        return err;
+    /* ACPI is little endian, AABBCCDD becomes { DD, CC, BB, AA } */
+    for (i = 0; i < 4; i++) {
+        args_buff[i] = (arg >> i * 8) & 0xFF;
     }
 
-    obj = (union acpi_object *)output.pointer;
-    if (obj->type == ACPI_TYPE_INTEGER && result) {
+    obj = acpi_evaluate_dsm(handle, guid, revid, func, &argv4);
+    if (!obj) {
+        acpi_handle_info(handle, "failed to evaluate _DSM\n");
+        return AE_ERROR;
+    }
+
+    if (obj->type == ACPI_TYPE_INTEGER) {
         *result = obj->integer.value;
     } else if (obj->type == ACPI_TYPE_BUFFER && obj->buffer.length == 4) {
         *result = 0;
@@ -76,22 +65,18 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
         *result |= (obj->buffer.pointer[1] << 8);
         *result |= (obj->buffer.pointer[2] << 16);
         *result |= (obj->buffer.pointer[3] << 24);
-    } else {
-        pr_err("%s: unsupported result type for _DSM command: %#x\n", __func__,
-                obj->type);
     }
 
-    kfree(output.pointer);
+    ACPI_FREE(obj);
 
     return 0;
 }
 
 static int bbsleep_optimus_dsm(acpi_handle handle) {
-    char args[] = { 1, 0, 0, 3 };
     uint32_t result = 0;
 
-    if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, OPTIMUS_DSM_REVID,
-            OPTIMUS_DSM_FUNC, args, &result)) {
+    if (bbsleep_dsm(handle, &optimus_dsm_muid, OPTIMUS_DSM_REVID,
+            OPTIMUS_DSM_FUNC, OPTIMUS_DSM_SET_POWERDOWN, &result)) {
         return 1;
     }
 
