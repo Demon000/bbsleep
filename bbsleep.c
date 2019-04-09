@@ -95,7 +95,8 @@ static int bbsleep_optimus_dsm(acpi_handle handle) {
         return 1;
     }
 
-    pr_info("%s: _DSM command evaluated successfully, result: %08X\n", __func__, result);
+    pr_info("%s: optimus _DSM command evaluated successfully, result: %08X\n",
+            __func__, result);
 
     return 0;
 }
