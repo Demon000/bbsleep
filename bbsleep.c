@@ -63,12 +63,7 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
 
     err = acpi_evaluate_object(handle, "_DSM", &input, &output);
     if (err) {
-        struct acpi_buffer buf = { ACPI_ALLOCATE_BUFFER, NULL };
-
-        acpi_get_name(handle, ACPI_FULL_PATHNAME, &buf);
-
         pr_err("%s: failed to evaluate _DSM command", __func__);
-
         return err;
     }
 
