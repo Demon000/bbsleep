@@ -23,12 +23,12 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 
-#define BBSWITCH_VERSION "0.8"
+#define BBSLEEP_VERSION "0.1"
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Toggle the discrete graphics card");
 MODULE_AUTHOR("Peter Wu <lekensteyn@gmail.com>");
-MODULE_VERSION(BBSWITCH_VERSION);
+MODULE_VERSION(BBSLEEP_VERSION);
 
 static const char acpi_optimus_dsm_muid[16] = {
     0xF8, 0xD8, 0x86, 0xA4, 0xDA, 0x0B, 0x1B, 0x47,
@@ -79,7 +79,7 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
     return 0;
 }
 
-static int bbswitch_optimus_dsm(acpi_handle handle) {
+static int bbsleep_optimus_dsm(acpi_handle handle) {
     char args[] = { 1, 0, 0, 3 };
 
     if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, 0x100, 0x1A, args)) {
@@ -91,11 +91,11 @@ static int bbswitch_optimus_dsm(acpi_handle handle) {
     return 0;
 }
 
-static int bbswitch_pci_runtime_suspend(struct device *dev) {
+static int bbsleep_pci_runtime_suspend(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
     acpi_handle handle = ACPI_HANDLE(&pdev->dev);
 
-    bbswitch_optimus_dsm(handle);
+    bbsleep_optimus_dsm(handle);
     pci_save_state(pdev);
     pci_set_power_state(pdev, PCI_D3hot);
 
@@ -104,18 +104,18 @@ static int bbswitch_pci_runtime_suspend(struct device *dev) {
     return 0;
 }
 
-static int bbswitch_pci_runtime_resume(struct device *dev) {
+static int bbsleep_pci_runtime_resume(struct device *dev) {
     pr_info("%s: resuming dedicated GPU\n", __func__);
 
     return 0;
 }
 
-static const struct dev_pm_ops bbswitch_pci_pm_ops = {
-    .runtime_suspend = bbswitch_pci_runtime_suspend,
-    .runtime_resume = bbswitch_pci_runtime_resume,
+static const struct dev_pm_ops bbsleep_pci_pm_ops = {
+    .runtime_suspend = bbsleep_pci_runtime_suspend,
+    .runtime_resume = bbsleep_pci_runtime_resume,
 };
 
-static int bbswitch_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
+static int bbsleep_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     pm_runtime_set_active(&pdev->dev);
     pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
     pm_runtime_use_autosuspend(&pdev->dev);
@@ -125,7 +125,7 @@ static int bbswitch_pci_probe(struct pci_dev *pdev, const struct pci_device_id *
     return 0;
 }
 
-static void bbswitch_pci_remove(struct pci_dev *pdev) {
+static void bbsleep_pci_remove(struct pci_dev *pdev) {
     pm_runtime_get_noresume(&pdev->dev);
     pm_runtime_dont_use_autosuspend(&pdev->dev);
     pm_runtime_forbid(&pdev->dev);
@@ -137,12 +137,12 @@ static const struct pci_device_id pciidlist[] = {
     { 0, 0, 0 },
 };
 
-static struct pci_driver bbswitch_pci_driver = {
+static struct pci_driver bbsleep_pci_driver = {
     .name = KBUILD_MODNAME,
     .id_table = pciidlist,
-    .probe  = bbswitch_pci_probe,
-    .remove = bbswitch_pci_remove,
-    .driver.pm = &bbswitch_pci_pm_ops,
+    .probe  = bbsleep_pci_probe,
+    .remove = bbsleep_pci_remove,
+    .driver.pm = &bbsleep_pci_pm_ops,
 };
 
-module_pci_driver(bbswitch_pci_driver);
+module_pci_driver(bbsleep_pci_driver);
