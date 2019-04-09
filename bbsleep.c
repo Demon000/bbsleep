@@ -227,6 +227,9 @@ static int bbsleep_pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
         pr_info("%s: detected NVIDIA _DSM function\n", __func__);
     }
 
+    pci_set_master(pdev);
+    pci_enable_device(pdev);
+
     pci_set_drvdata(pdev, data);
 
     pm_runtime_set_active(&pdev->dev);
