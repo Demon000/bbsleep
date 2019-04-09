@@ -115,6 +115,11 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
 }
 
 static int bbsleep_pci_runtime_resume(struct device *dev) {
+    struct pci_dev *pdev = to_pci_dev(dev);
+
+    pci_set_power_state(pdev, PCI_D0);
+    pci_restore_state(pdev);
+
     pr_info("%s: resuming dedicated GPU\n", __func__);
 
     return 0;
