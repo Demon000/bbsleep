@@ -25,6 +25,8 @@
 
 #define BBSLEEP_VERSION "0.1"
 
+#define OPTIMUS_DSM_REVID 0x100
+#define OPTIMUS_DSM_FUNC 0x1A
 static const char acpi_optimus_dsm_muid[16] = {
     0xF8, 0xD8, 0x86, 0xA4, 0xDA, 0x0B, 0x1B, 0x47,
     0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0,
@@ -77,7 +79,8 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
 static int bbsleep_optimus_dsm(acpi_handle handle) {
     char args[] = { 1, 0, 0, 3 };
 
-    if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, 0x100, 0x1A, args)) {
+    if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, OPTIMUS_DSM_REVID,
+            OPTIMUS_DSM_FUNC, args)) {
         return 1;
     }
 
