@@ -25,6 +25,26 @@
 
 #define BBSLEEP_VERSION "0.1"
 
+enum dsm_type {
+    DSM_TYPE_UNSUPPORTED,
+    DSM_TYPE_NVIDIA,
+    DSM_TYPE_OPTIMUS,
+};
+
+struct bbsleep_data {
+    enum dsm_type type;
+    acpi_handle handle;
+};
+
+#define NVIDIA_DSM_POWER_SPEED 0x01
+#define NVIDIA_DSM_POWER_STAMINA 0x02
+
+#define NVIDIA_DSM_REVID 0x102
+#define NVIDIA_DSM_FUNC 0x3
+static const guid_t nvidia_dsm_muid =
+    GUID_INIT(0x9D95A0A0, 0x0060, 0x4D48,
+            0xB3, 0x4D, 0x7E, 0x5F, 0xEA, 0x12, 0x9F, 0xD4);
+
 #define OPTIMUS_DSM_POWERDOWN_PS3 (3 << 24)
 #define OPTIMUS_DSM_FLAGS_CHANGED (1)
 #define OPTIMUS_DSM_SET_POWERDOWN (OPTIMUS_DSM_POWERDOWN_PS3 | OPTIMUS_DSM_FLAGS_CHANGED)
@@ -72,6 +92,20 @@ static int bbsleep_dsm(acpi_handle handle, const guid_t *guid, int revid,
     return 0;
 }
 
+static int bbsleep_check_dsm(acpi_handle handle, const guid_t *guid, int revid, int sfnc) {
+    int result;
+
+    if (bbsleep_dsm(handle, guid, revid, 0, 0, &result)) {
+        return 0;
+    }
+
+    if (result & 1 && result & (1 << sfnc)) {
+        return result;
+    }
+
+    return 0;
+}
+
 static int bbsleep_optimus_dsm(acpi_handle handle) {
     uint32_t result = 0;
 
@@ -86,14 +120,48 @@ static int bbsleep_optimus_dsm(acpi_handle handle) {
     return 0;
 }
 
+static int bbsleep_nvidia_dsm_off(acpi_handle handle) {
+    uint32_t result = 0;
+
+    if (bbsleep_dsm(handle, &nvidia_dsm_muid, NVIDIA_DSM_REVID,
+            NVIDIA_DSM_FUNC, NVIDIA_DSM_POWER_STAMINA, &result)) {
+        return 1;
+    }
+
+    pr_info("%s: NVIDIA OFF _DSM command evaluated successfully, result: %08X\n",
+            __func__, result);
+
+    return 0;
+}
+
+static int bbsleep_nvidia_dsm_on(acpi_handle handle) {
+    uint32_t result = 0;
+
+    if (bbsleep_dsm(handle, &nvidia_dsm_muid, NVIDIA_DSM_REVID,
+            NVIDIA_DSM_FUNC, NVIDIA_DSM_POWER_SPEED, &result)) {
+        return 1;
+    }
+
+    pr_info("%s: NVIDIA ON _DSM command evaluated successfully, result: %08X\n",
+            __func__, result);
+
+    return 0;
+}
+
 static int bbsleep_pci_runtime_suspend(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
-    acpi_handle handle = ACPI_HANDLE(&pdev->dev);
+    struct bbsleep_data *data = pci_get_drvdata(pdev);
 
-    bbsleep_optimus_dsm(handle);
+    if (data->type == DSM_TYPE_OPTIMUS) {
+        bbsleep_optimus_dsm(data->handle);
+    }
 
     pci_save_state(pdev);
     pci_set_power_state(pdev, PCI_D3cold);
+
+    if (data->type == DSM_TYPE_NVIDIA) {
+        bbsleep_nvidia_dsm_off(data->handle);
+    }
 
     pr_info("%s: suspending dedicated GPU\n", __func__);
 
@@ -102,6 +170,11 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
 
 static int bbsleep_pci_runtime_resume(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
+    struct bbsleep_data *data = pci_get_drvdata(pdev);
+
+    if (data->type == DSM_TYPE_NVIDIA) {
+        bbsleep_nvidia_dsm_on(data->handle);
+    }
 
     pci_set_power_state(pdev, PCI_D0);
     pci_restore_state(pdev);
@@ -117,6 +190,29 @@ static const struct dev_pm_ops bbsleep_pci_pm_ops = {
 };
 
 static int bbsleep_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
+    struct bbsleep_data *data;
+
+    data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+    if (!data) {
+        pr_err("%s: failed to allocate memory for driver data\n", __func__);
+        return -ENOMEM;
+    }
+
+
+    data->handle = ACPI_HANDLE(&pdev->dev);
+
+    if (bbsleep_check_dsm(data->handle, &optimus_dsm_muid,
+            OPTIMUS_DSM_REVID, OPTIMUS_DSM_FUNC)) {
+        data->type = DSM_TYPE_OPTIMUS;
+        pr_info("%s: detected OPTIMUS _DSM function\n", __func__);
+    } else if (bbsleep_check_dsm(data->handle, &nvidia_dsm_muid,
+            NVIDIA_DSM_REVID, NVIDIA_DSM_FUNC)) {
+        data->type = DSM_TYPE_NVIDIA;
+        pr_info("%s: detected NVIDIA _DSM function\n", __func__);
+    }
+
+    pci_set_drvdata(pdev, data);
+
     pm_runtime_set_active(&pdev->dev);
     pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
     pm_runtime_use_autosuspend(&pdev->dev);
