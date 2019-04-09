@@ -33,10 +33,11 @@ static const char acpi_optimus_dsm_muid[16] = {
 };
 
 static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
-        int func, char args[4]) {
+        int func, char args[4], uint32_t *result) {
     struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
     struct acpi_object_list input;
     union acpi_object params[4];
+    union acpi_object *obj;
     int err;
 
     input.count = 4;
@@ -71,6 +72,20 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
         return err;
     }
 
+    obj = (union acpi_object *)output.pointer;
+    if (obj->type == ACPI_TYPE_INTEGER && result) {
+        *result = obj->integer.value;
+    } else if (obj->type == ACPI_TYPE_BUFFER && obj->buffer.length == 4) {
+        *result = 0;
+        *result |= obj->buffer.pointer[0];
+        *result |= (obj->buffer.pointer[1] << 8);
+        *result |= (obj->buffer.pointer[2] << 16);
+        *result |= (obj->buffer.pointer[3] << 24);
+    } else {
+        pr_err("%s: unsupported result type for _DSM command: %#x\n", __func__,
+                obj->type);
+    }
+
     kfree(output.pointer);
 
     return 0;
@@ -78,13 +93,14 @@ static int acpi_call_dsm(acpi_handle handle, const char muid[16], int revid,
 
 static int bbsleep_optimus_dsm(acpi_handle handle) {
     char args[] = { 1, 0, 0, 3 };
+    uint32_t result = 0;
 
     if (acpi_call_dsm(handle, acpi_optimus_dsm_muid, OPTIMUS_DSM_REVID,
-            OPTIMUS_DSM_FUNC, args)) {
+            OPTIMUS_DSM_FUNC, args, &result)) {
         return 1;
     }
 
-    pr_info("%s: _DSM command evaluated successfully\n", __func__);
+    pr_info("%s: _DSM command evaluated successfully, result: %08X\n", __func__, result);
 
     return 0;
 }
