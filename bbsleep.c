@@ -106,6 +106,7 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
     acpi_handle handle = ACPI_HANDLE(&pdev->dev);
 
     bbsleep_optimus_dsm(handle);
+
     pci_save_state(pdev);
     pci_set_power_state(pdev, PCI_D3cold);
 
