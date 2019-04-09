@@ -25,11 +25,6 @@
 
 #define BBSLEEP_VERSION "0.1"
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Toggle the discrete graphics card");
-MODULE_AUTHOR("Peter Wu <lekensteyn@gmail.com>");
-MODULE_VERSION(BBSLEEP_VERSION);
-
 static const char acpi_optimus_dsm_muid[16] = {
     0xF8, 0xD8, 0x86, 0xA4, 0xDA, 0x0B, 0x1B, 0x47,
     0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0,
@@ -144,5 +139,10 @@ static struct pci_driver bbsleep_pci_driver = {
     .remove = bbsleep_pci_remove,
     .driver.pm = &bbsleep_pci_pm_ops,
 };
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Toggle the discrete graphics card");
+MODULE_AUTHOR("Peter Wu <lekensteyn@gmail.com>");
+MODULE_VERSION(BBSLEEP_VERSION);
 
 module_pci_driver(bbsleep_pci_driver);
