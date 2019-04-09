@@ -107,7 +107,7 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
 
     bbsleep_optimus_dsm(handle);
     pci_save_state(pdev);
-    pci_set_power_state(pdev, PCI_D3hot);
+    pci_set_power_state(pdev, PCI_D3cold);
 
     pr_info("%s: suspending dedicated GPU\n", __func__);
 
