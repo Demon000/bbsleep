@@ -1,6 +1,6 @@
-modname := bbswitch
+modname := bbsleep
 DKMS := dkms
-modver := $(shell awk -F'"' '/define *BBSWITCH_VERSION/{print $$2}' < bbswitch.c)
+modver := $(shell awk -F'"' '/define *BBSWITCH_VERSION/{print $$2}' < bbsleep.c)
 
 # directory in which generated files are stored
 DKMS_DEST := /usr/src/$(modname)-$(modver)
@@ -9,16 +9,16 @@ all: install
 
 src_install:
 	mkdir -p '$(DKMS_DEST)'
-	cp Makefile bbswitch.c '$(DKMS_DEST)'
+	cp Makefile bbsleep.c '$(DKMS_DEST)'
 	sed 's/#MODULE_VERSION#/$(modver)/' dkms/dkms.conf > '$(DKMS_DEST)/dkms.conf'
 
 build: src_install
-	$(DKMS) build -m bbswitch -v $(modver)
+	$(DKMS) build -m bbsleep -v $(modver)
 
 install: build
-	$(DKMS) install -m bbswitch -v $(modver)
+	$(DKMS) install -m bbsleep -v $(modver)
 
 uninstall:
-	$(DKMS) remove -m bbswitch -v $(modver) --all
+	$(DKMS) remove -m bbsleep -v $(modver) --all
 
 .PHONY: all src_install build install uninstall

@@ -1,4 +1,4 @@
-modname := bbswitch
+modname := bbsleep
 obj-m := $(modname).o
 
 KVERSION := $(shell uname -r)

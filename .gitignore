@@ -5,5 +5,5 @@ Module.symvers
 *.mod.c
 *.o
 modules.order
-bbswitch-*.tar.gz
+bbsleep-*.tar.gz
 .*.sw*
