@@ -92,13 +92,25 @@ static int bbsleep_dsm(acpi_handle handle, const guid_t *guid, int revid,
     return 0;
 }
 
+/*
+ * On some platforms, the fourth parameter of the _DSM call cannot be NULL,
+ * so add a private implementation instead of using acpi_check_dsm().
+ */
 static int bbsleep_check_dsm(acpi_handle handle, const guid_t *guid, int revid, int sfnc) {
     int result;
 
+    /*
+     * Function 0 returns a Buffer containing available functions.
+     * The args parameter is ignored for function 0, so just put 0 in it
+     */
     if (bbsleep_dsm(handle, guid, revid, 0, 0, &result)) {
         return 0;
     }
 
+    /*
+     * ACPI Spec v4 9.14.1: if bit 0 is zero, no function is supported.
+     * If the n-th bit is enabled, function n is supported
+     */
     if (result & 1 && result & (1 << sfnc)) {
         return result;
     }
