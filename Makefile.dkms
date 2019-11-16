@@ -1,6 +1,6 @@
 modname := bbsleep
 DKMS := dkms
-modver := $(shell awk -F'"' '/define *BBSLEEP_VERSION/{print $$2}' < bbsleep.c)
+modver := $(shell awk -F'"' '/define *BBSLEEP_VERSION/{print $$3}' < bbsleep.c)
 
 # directory in which generated files are stored
 DKMS_DEST := /usr/src/$(modname)-$(modver)
