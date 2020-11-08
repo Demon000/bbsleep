@@ -23,7 +23,7 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 
-#define BBSLEEP_VERSION "0.1"
+#define BBSLEEP_VERSION "0.2"
 
 enum dsm_type {
     DSM_TYPE_UNSUPPORTED,
