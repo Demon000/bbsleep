@@ -55,6 +55,8 @@ static const guid_t optimus_dsm_muid =
     GUID_INIT(0xA486D8F8, 0x0BDA, 0x471B,
             0xA7, 0x2B, 0x60, 0x42, 0xA6, 0xB5, 0xBE, 0xE0);
 
+static DEFINE_MUTEX(bbsleep_lock);
+
 static int bbsleep_dsm(acpi_handle handle, const guid_t *guid, int revid,
         int func, int arg, uint32_t *result) {
     int i;
@@ -164,6 +166,10 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
     struct bbsleep_data *data = pci_get_drvdata(pdev);
 
+    pr_info("%s: suspending dedicated GPU\n", __func__);
+
+    mutex_lock(&bbsleep_lock);
+
     if (data->type == DSM_TYPE_OPTIMUS) {
         bbsleep_optimus_dsm(data->handle);
     }
@@ -177,7 +183,9 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
         bbsleep_nvidia_dsm_off(data->handle);
     }
 
-    pr_info("%s: suspending dedicated GPU\n", __func__);
+    mutex_unlock(&bbsleep_lock);
+
+    pr_info("%s: suspended dedicated GPU\n", __func__);
 
     return 0;
 }
@@ -185,6 +193,10 @@ static int bbsleep_pci_runtime_suspend(struct device *dev) {
 static int bbsleep_pci_runtime_resume(struct device *dev) {
     struct pci_dev *pdev = to_pci_dev(dev);
     struct bbsleep_data *data = pci_get_drvdata(pdev);
+
+    pr_info("%s: resuming dedicated GPU\n", __func__);
+
+    mutex_lock(&bbsleep_lock);
 
     if (data->type == DSM_TYPE_NVIDIA) {
         bbsleep_nvidia_dsm_on(data->handle);
@@ -195,7 +207,9 @@ static int bbsleep_pci_runtime_resume(struct device *dev) {
     pci_enable_device(pdev);
     pci_set_master(pdev);
 
-    pr_info("%s: resuming dedicated GPU\n", __func__);
+    mutex_unlock(&bbsleep_lock);
+
+    pr_info("%s: resumed dedicated GPU\n", __func__);
 
     return 0;
 }
